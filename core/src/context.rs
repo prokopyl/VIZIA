@@ -16,47 +16,55 @@ use crate::{
     ViewHandler,
 };
 
+const LOCALE: &str = include_str!("../../examples/resources/en-US/hello.ftl");
+
 pub struct Enviroment {
     // Signifies whether the app should be rebuilt
     // Changing an enviroment variable requires a rebuild of the app
     pub needs_rebuild: bool,
-    //pub bundle: FluentBundle<FluentResource>,
+    pub bundle: FluentBundle<FluentResource>,
     pub include_default_theme: bool,
 }
 
 impl Enviroment {
     pub fn new() -> Self {
-        // let lang =  "en-US".parse::<LanguageIdentifier>().expect("Failed to parse locale");
-        // let resolved_locales = vec![&lang];
-        // let mut bundle = FluentBundle::new(resolved_locales.into_iter().cloned().collect());
-        // let mut file = std::fs::File::open("examples/resources/en-US/hello.ftl").expect("No File Found");
-        // let mut source: String = String::new();
-        // file.read_to_string(&mut source).expect("Failed to read ftl file");
-        // let resource = FluentResource::try_new(source).expect("Could not parse an FTL string.");
-        // bundle
-        //     .add_resource(resource)
-        //     .expect("Failed to add FTL resources to the bundle.");
+        let lang =  "en-US".parse::<LanguageIdentifier>().expect("Failed to parse locale");
+        let resolved_locales = vec![&lang];
+        let mut bundle = FluentBundle::new(resolved_locales.into_iter().cloned().collect());
+        if let Ok(mut file) = std::fs::File::open("examples/resources/en-US/hello.ftl") {
+            let mut source: String = String::new();
+            file.read_to_string(&mut source).expect("Failed to read ftl file");
+            let resource = FluentResource::try_new(source).expect("Could not parse an FTL string.");
+            bundle
+                .add_resource(resource)
+                .expect("Failed to add FTL resources to the bundle.");
+
+        }
+
         Self {
             needs_rebuild: true,
-            //bundle,
+            bundle,
             include_default_theme: true,
         }
     }
 
     pub fn set_locale(&mut self, locale: &str) {
         // TODO
-        // let lang =  locale.parse::<LanguageIdentifier>().expect("Failed to parse locale");
-        // let resolved_locales = vec![&lang];
-        // let mut bundle = FluentBundle::new(resolved_locales.into_iter().cloned().collect());
-        // let mut file = std::fs::File::open(&format!("examples/resources/{}/hello.ftl", locale)).expect("No File Found");
-        // let mut source: String = String::new();
-        // file.read_to_string(&mut source).expect("Failed to read ftl file");
-        // let resource = FluentResource::try_new(source).expect("Could not parse an FTL string.");
-        // bundle
-        //     .add_resource(resource)
-        //     .expect("Failed to add FTL resources to the bundle.");
-        // self.bundle = bundle;
-        // self.needs_rebuild = true;
+        let lang =  locale.parse::<LanguageIdentifier>().expect("Failed to parse locale");
+        let resolved_locales = vec![&lang];
+        let mut bundle = FluentBundle::new(resolved_locales.into_iter().cloned().collect());
+        if let Ok(mut file) = std::fs::File::open(&format!("examples/resources/{}/hello.ftl", locale)) {
+            let mut source: String = String::new();
+            file.read_to_string(&mut source).expect("Failed to read ftl file");
+            let resource = FluentResource::try_new(source).expect("Could not parse an FTL string.");
+            bundle
+                .add_resource(resource)
+                .expect("Failed to add FTL resources to the bundle.");
+            self.bundle = bundle;
+            self.needs_rebuild = true;
+        } else {
+            println!("Failed");
+        }
     }
 }
 

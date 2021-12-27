@@ -42,6 +42,10 @@ path = "examples/controls/popup.rs"
 name = "dropdown"
 path = "examples/controls/dropdown.rs"
 
+[[example]]
+name = "placeables"
+path = "examples/localization/placeables.rs"
+
 [features]
 default = ["glutin"]
 glutin = ["vizia_glutin"]
