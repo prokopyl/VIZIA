@@ -16,6 +16,9 @@ pub use handle::*;
 pub mod tree;
 pub use tree::*;
 
+pub mod text;
+pub use text::*;
+
 pub use morphorm::layout as apply_layout;
 pub use morphorm::{GeometryChanged, LayoutType, PositionType, Units};
 

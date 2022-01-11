@@ -209,3 +209,7 @@ fn hue(mut h: f32, m1: f32, m2: f32) -> f32 {
 
     m1
 }
+
+impl parley::style::Brush for Color {
+
+}
