@@ -7,6 +7,9 @@ license = "MIT"
 repository = "https://github.com/geom3trik/VIZIA"
 description = "Glutin backend for vizia"
 
+[features]
+image-loading = ["femtovg/image-loading"]
+
 [dependencies]
 glutin = "0.28.0"
 femtovg = {git = "https://github.com/femtovg/femtovg", rev = "138a45d7b92419cc9eb2566acef7fadf25b81c00", default-features = false}

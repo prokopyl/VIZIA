@@ -1,7 +1,7 @@
 use std::{
     cell::RefCell,
     collections::{HashMap, VecDeque},
-    rc::Rc,
+    rc::Rc, error::Error,
 };
 
 use femtovg::{FontId, TextContext};
@@ -12,6 +12,9 @@ use crate::{
     CachedData, Entity, Enviroment, Event, FontOrId, IdManager, Message, Modifiers,
     MouseState, Propagation, ResourceManager, Style, Tree, TreeExt, View, ViewHandler, storage::sparse_set::SparseSet, ModelDataStore,
 };
+
+#[cfg(feature = "image-loading")]
+use crate::ImageOrId;
 
 static DEFAULT_THEME: &str = include_str!("default_theme.css");
 
@@ -164,6 +167,18 @@ impl Context {
                 .trace(),
         );
     }
+
+    #[cfg(feature = "image-loading")]
+    pub fn add_image_file(&mut self, name: &str, file_path: &str) -> Result<(), Box<dyn Error>> {
+        if self.resource_manager.images.contains_key(name) {
+            return Ok(());
+        }
+        let img = ::image::open(file_path)?;
+
+        self.resource_manager.images.insert(name.to_string(), ImageOrId::Image(img));
+
+        Ok(())
+    } 
 
     /// Add a font from memory to the application
     pub fn add_font_mem(&mut self, name: &str, data: &[u8]) {

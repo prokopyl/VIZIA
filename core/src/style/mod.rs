@@ -323,7 +323,7 @@ pub struct Style {
 
     // Background
     pub background_color: AnimatableSet<Color>,
-    pub background_image: StyleSet<Rc<()>>,
+    pub background_image: StyleSet<String>,
     pub background_gradient: StyleSet<LinearGradient>,
 
     // Outer Shadow

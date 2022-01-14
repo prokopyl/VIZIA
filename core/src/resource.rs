@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc, hash::Hash};
 
 // pub struct Image {
 //     name: String,
@@ -9,10 +9,11 @@ use std::collections::HashMap;
 //     pub data: Vec<u8>,
 // }
 
-// pub enum ImageOrId {
-//     Image(image::DynamicImage),
-//     Id(femtovg::ImageId),
-// }
+#[cfg(feature = "image-loading")]
+pub enum ImageOrId {
+    Image(image::DynamicImage),
+    Id(femtovg::ImageId),
+}
 
 pub enum FontOrId {
     Font(Vec<u8>),
@@ -22,6 +23,7 @@ pub enum FontOrId {
 // #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 // pub struct Resource(u32);
 
+
 #[derive(Default)]
 pub struct ResourceManager {
     //pub images: HashMap<String, Image>,
@@ -30,7 +32,9 @@ pub struct ResourceManager {
     //pub images: Vec<Image>,
     pub fonts: HashMap<String, FontOrId>,
 
-    //pub image_ids: HashMap<Rc<()>, ImageOrId>,
+    #[cfg(feature = "image-loading")]
+    pub images: HashMap<String, ImageOrId>,
+
     count: u32,
 }
 
@@ -41,7 +45,9 @@ impl ResourceManager {
             stylesheets: Vec::new(),
             themes: Vec::new(),
             //images: Vec::new(),
-            //image_ids: HashMap::new(),
+            #[cfg(feature = "image-loading")]
+            images: HashMap::new(),
+
             count: 0,
             fonts: HashMap::new(),
         }

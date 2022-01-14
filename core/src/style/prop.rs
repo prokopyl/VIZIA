@@ -897,8 +897,8 @@ pub trait PropSet: AsEntity + Sized {
     }
 
     // TODO
-    fn set_background_image(self, cx: &mut Context, value: Rc<()>) -> Entity {
-        cx.style.background_image.insert(self.entity(), value);
+    fn set_background_image(self, cx: &mut Context, name: &str) -> Entity {
+        cx.style.background_image.insert(self.entity(), name.to_owned());
 
         cx.style.needs_redraw = true;
 

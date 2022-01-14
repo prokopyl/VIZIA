@@ -4,7 +4,7 @@ use std::{
     rc::Rc,
 };
 
-use femtovg::TextContext;
+use femtovg::{TextContext, ImageFlags, ImageSource};
 use glutin::{
     event::{ElementState, VirtualKeyCode},
     event_loop::{ControlFlow, EventLoop, EventLoopProxy},
@@ -17,6 +17,9 @@ use vizia_core::{
     MouseButton, MouseButtonState, MouseState, Propagation, ResourceManager, Style, Tree, TreeExt,
     Units, Visibility, WindowDescription, WindowEvent, PseudoClass
 };
+
+#[cfg(feature = "image-loading")]
+use vizia_core::ImageOrId;
 
 use crate::keyboard::{scan_to_code, vcode_to_code, vk_to_key};
 use crate::window::Window;
@@ -237,6 +240,20 @@ impl Application {
                                         *font = FontOrId::Id(id1);
                                     }
                     
+                                    _=> {}
+                                }
+                            }
+
+                            #[cfg(feature = "image-loading")]
+                            for (name, image) in context.resource_manager.images.iter_mut() {
+                                match image {
+                                    ImageOrId::Image(data) => {
+                                        use std::convert::TryFrom;
+                                        let src = ImageSource::try_from(&*data).expect("Failed to create image source");
+                                        let id = window.canvas.create_image(src, ImageFlags::empty()).expect("Failed to create image");
+                                        *image = ImageOrId::Id(id);
+                                    }
+
                                     _=> {}
                                 }
                             }

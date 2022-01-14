@@ -569,17 +569,18 @@ pub trait View: 'static + Sized {
         // Fill with background color
         let mut paint = Paint::color(background_color);
 
-        // if let Some(background_image) = cx.style.background_image.get(entity) {
-        //     if let Some(image_id) = cx.resource_manager.image_ids.get(background_image) {
-        //         match image_id {
-        //             crate::ImageOrId::Id(id) => {
-        //                 paint = Paint::image(*id, 0.0, 0.0, 100.0, 100.0, 0.0, 1.0);
-        //             }
+        #[cfg(feature = "image-loading")]
+        if let Some(background_image) = cx.style.background_image.get(entity) {
+            if let Some(image) = cx.resource_manager.images.get(background_image) {
+                match image {
+                    crate::ImageOrId::Id(id) => {
+                        paint = Paint::image(*id, 0.0, 0.0, bounds.w, bounds.h, 0.0, 1.0);
+                    }
 
-        //             _ => {}
-        //         }
-        //     }
-        // }
+                    _ => {}
+                }
+            }
+        }
 
         // Gradient overrides background color
         if let Some(background_gradient) = cx.style.background_gradient.get(entity) {

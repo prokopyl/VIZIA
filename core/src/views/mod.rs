@@ -42,3 +42,8 @@ pub use popup::*;
 
 mod radio_buttons;
 pub use radio_buttons::*;
+
+#[cfg(feature = "image-loading")]
+mod image_view;
+#[cfg(feature = "image-loading")]
+pub use image_view::*;

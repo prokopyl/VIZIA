@@ -191,6 +191,16 @@ impl<'a,T> Handle<'a,T> {
     pub fn color(self, color: Color) -> Self {
         self.cx.style.font_color.insert(self.entity, color);
 
+        self.cx.style.needs_redraw = true;
+
+        self
+    }
+
+    pub fn background_image(self, name: &str) -> Self {
+        self.cx.style.background_image.insert(self.entity, name.to_owned());
+
+        self.cx.style.needs_redraw = true;
+        
         self
     }
 

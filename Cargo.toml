@@ -59,6 +59,7 @@ default = ["glutin"]
 glutin = ["vizia_glutin"]
 baseview = ["vizia_baseview"]
 meadowlark = ["glutin", "vizia_core/meadowlark"]
+image-loading = ["vizia_glutin/image-loading", "vizia_core/image-loading"]
 
 
 [dependencies]
