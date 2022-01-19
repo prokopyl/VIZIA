@@ -70,6 +70,10 @@ path = "examples/lists/multiselectable_list.rs"
 name = "static_list"
 path = "examples/lists/static_list.rs"
 
+[[example]]
+name = "input_list"
+path = "examples/lists/input_list.rs"
+
 
 [features]
 default = ["glutin", "clipboard"]

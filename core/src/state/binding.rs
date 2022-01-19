@@ -28,7 +28,6 @@ where
     pub fn new<F>(cx: &mut Context, lens: L, builder: F)
     where
         F: 'static + Fn(&mut Context, Field<L>),
-        <L as Lens>::Source: Model,
     {
         let parent = cx.current;
 

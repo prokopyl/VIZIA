@@ -1,6 +1,7 @@
 use crate::Model;
 use std::any::TypeId;
 use std::fmt::{Debug, Formatter};
+use std::marker::PhantomData;
 
 /// A Lens allows the construction of a reference to a field of a struct.
 ///
@@ -8,7 +9,7 @@ use std::fmt::{Debug, Formatter};
 /// The `view()` method takes a reference to the struct type as input and outputs a reference to the field.
 /// This provides a way to specify a binding to a specific field of some application data.
 pub trait Lens: 'static + Clone + Copy + std::fmt::Debug {
-    type Source: Model;
+    type Source;
     type Target;
 
     fn view<'a>(&self, source: &'a Self::Source) -> &'a Self::Target;
@@ -42,15 +43,16 @@ pub trait LensExt: Lens {
     // }
 
     // TODO
-    // fn index<I: 'static>(self, index: I) -> Then<Self, Index<Self::Target, I>>
-    // where
-    //     Self: Sized,
-    //     I: Clone,
-    //     Self::Target: std::ops::Index<I> + Sized,
-    //     <<Self as Lens>::Target as std::ops::Index<I>>::Output: Sized + Clone,
-    // {
-    //     Then::new(self, Index::new(index))
-    // }
+    fn index<I: Copy + 'static>(self, index: I) -> Then<Self, Index<Self::Target, I>>
+    where
+        Self: Sized,
+        I: Copy + Clone + std::fmt::Debug,
+        Self::Target: std::ops::Index<I> + Sized,
+        <Self as Lens>::Target: std::fmt::Debug,
+        <<Self as Lens>::Target as std::ops::Index<I>>::Output: Sized + Clone,
+    {
+        Then::new(self, Index::new(index))
+    }
 }
 
 // Implement LensExt for all types which implement Lens
@@ -92,34 +94,42 @@ impl<T: Clone, U: Clone> Clone for Then<T, U> {
     }
 }
 
-// pub struct Index<T,I> {
-//     index: I,
-//     output: PhantomData<T>,
-// }
+#[derive(Debug)]
+pub struct Index<T,I: Copy> {
+    index: I,
+    output: PhantomData<*mut T>,
+}
 
-// impl<T,I> Index<T,I> {
-//     pub fn new(index: I) -> Self {
-//         Self {
-//             index,
-//             output: PhantomData::default(),
-//         }
-//     }
-// }
+impl<T,I: Copy> Index<T,I> {
+    pub fn new(index: I) -> Self {
+        Self {
+            index,
+            output: PhantomData::default(),
+        }
+    }
+}
 
-// impl<T,I> Lens for Index<T,I>
-// where
+impl<T,I: Copy> Lens for Index<T,I>
+where
+    T: 'static + std::ops::Index<I> + Sized + std::fmt::Debug,
+    I: 'static + Copy + Clone + std::fmt::Debug,
+    <T as std::ops::Index<I>>::Output: Sized + Clone,
+{
+    type Source = T;
+    type Target = <T as std::ops::Index<I>>::Output;
 
-//     T: 'static + std::ops::Index<I> + Sized,
-//     I: 'static + Clone,
-//     <T as std::ops::Index<I>>::Output: Sized + Clone,
-// {
-//     type Source = T;
-//     type Target = <T as std::ops::Index<I>>::Output;
+    fn view<'a>(&self, data: &'a Self::Source) -> &'a Self::Target {
+        &data[self.index.clone()]
+    }
+}
 
-//     fn view<'a>(&self, data: &'a Self::Source) -> &'a Self::Target {
-//         &data[self.index.clone()]
-//     }
-// }
+impl<T,I: Copy> Clone for Index<T,I> {
+    fn clone(&self) -> Self {
+        Self { index: self.index.clone(), output: PhantomData::default()}
+    }
+}
+
+impl<T,I: Copy> Copy for Index<T,I> {}
 
 pub struct StaticLens<T: 'static> {
     data: &'static T,

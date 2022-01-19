@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use keyboard_types::Code;
 
-use crate::{Binding, Context, Data, Handle, Lens, Model, MouseButton, TreeExt, View, WindowEvent};
+use crate::{Binding, Context, Data, Handle, Lens, Model, MouseButton, TreeExt, View, WindowEvent, LensExt, Index, Then};
 
 /// An `ItemPtr` is used to access an item from context in a list item template.
 ///
@@ -20,18 +20,18 @@ use crate::{Binding, Context, Data, Handle, Lens, Model, MouseButton, TreeExt, V
 #[derive(Debug)]
 pub struct ItemPtr<L, T>
 where
-    L: Lens<Target = Vec<T>>,
+    L: Lens<Target = T>,
 {
-    lens: L,
+    pub lens: L,
     index: usize,
     row: usize,
     col: usize,
 }
 
 // Manual implementations of Clone and Copy or else the compiler complains about a Clone bound on T which isn't actually required
-impl<L, T> Copy for ItemPtr<L, T> where L: Lens<Target = Vec<T>> {}
+impl<L, T> Copy for ItemPtr<L, T> where L: Lens<Target = T> {}
 
-impl<L: Lens<Target = Vec<T>>, T> Clone for ItemPtr<L, T> {
+impl<L: Lens<Target = T>, T> Clone for ItemPtr<L, T> {
     fn clone(&self) -> Self {
         Self { lens: self.lens.clone(), index: self.index, row: self.row, col: self.col }
     }
@@ -39,7 +39,7 @@ impl<L: Lens<Target = Vec<T>>, T> Clone for ItemPtr<L, T> {
 
 impl<L, T> ItemPtr<L, T>
 where
-    L: Lens<Target = Vec<T>>,
+    L: Lens<Target = T>,
 {
     /// Constructs a new ItemPtr from a lens and index.
     pub fn new(lens: L, index: usize, row: usize, col: usize) -> Self {
@@ -63,10 +63,7 @@ where
     where
         <L as Lens>::Source: 'static,
     {
-        self.lens
-            .view(cx.data().expect("Failed to get data"))
-            .get(self.index)
-            .expect(&format!("Failed to get item: {}", self.index))
+        self.lens.view(cx.data().expect("Failed to get data"))
     }
 }
 
@@ -77,7 +74,7 @@ pub trait DataHandle: Clone + Copy {
 
 impl<L, T> DataHandle for ItemPtr<L, T>
 where
-    L: Lens<Target = Vec<T>>,
+    L: Lens<Target = T>,
 {
     type Data = T;
     fn get<'a>(&self, cx: &'a Context) -> &'a Self::Data {
@@ -97,12 +94,11 @@ where
     clear_callback: Option<Box<dyn Fn(&mut Context)>>,
 }
 
-impl<L: 'static + Lens<Target = Vec<T>>, T: Data> List<L, T> {
+impl<L: 'static + Lens<Target = Vec<T>>, T: Data + std::fmt::Debug> List<L, T> {
     /// Creates a new ListView with a binding to the given lens and a template for constructing the list items
     pub fn new<F>(cx: &mut Context, lens: L, item: F) -> Handle<Self>
     where
-        F: 'static + Fn(&mut Context, ItemPtr<L, T>),
-        <L as Lens>::Source: Model,
+        F: 'static + Fn(&mut Context, ItemPtr<Then<L, Index<Vec<T>, usize>>, T>),
     {
         //let item_template = Rc::new(item);
         List {
@@ -131,7 +127,8 @@ impl<L: 'static + Lens<Target = Vec<T>>, T: Data> List<L, T> {
                 }
 
                 for index in 0..list_len {
-                    let ptr = ItemPtr::new(lens.clone(), index, index, 0);
+                    let item_lens = lens.index(index);
+                    let ptr = ItemPtr::new(item_lens, index, index, 0);
                     (item)(cx, ptr);
                 }
             });
