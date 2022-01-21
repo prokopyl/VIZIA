@@ -41,6 +41,8 @@ pub struct Context {
 
     #[cfg(feature = "clipboard")]
     pub clipboard: ClipboardContext,
+
+    pub needs_update: bool,
 }
 
 impl Context {
@@ -70,6 +72,8 @@ impl Context {
 
             #[cfg(feature = "clipboard")]
             clipboard: ClipboardContext::new().expect("Failed to init clipboard"),
+
+            needs_update: true,
         }
     }
 

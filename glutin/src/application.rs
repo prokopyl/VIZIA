@@ -255,30 +255,36 @@ impl Application {
                     }
 
                     // Data Updates
-                    let mut observers: Vec<Entity> = Vec::new();
-
-                    for model_store in context.data.dense.iter_mut().map(|entry| &mut entry.value) {
-                        for (_, lens) in model_store.lenses.iter_mut() {
-                            for (_, model) in model_store.data.iter() {
-                                if lens.update(model) {
-                                    observers.extend(lens.observers().iter());
+                    while context.needs_update {
+                        context.needs_update = false;
+                        let mut observers: Vec<Entity> = Vec::new();
+    
+                        for model_store in context.data.dense.iter_mut().map(|entry| &mut entry.value) {
+                            for (_, lens) in model_store.lenses.iter_mut() {
+                                for (_, model) in model_store.data.iter() {
+                                    if lens.update(model) {
+                                        observers.extend(lens.observers().iter());
+                                    }
                                 }
                             }
                         }
+    
+                        for observer in observers.iter() {
+                            if let Some(mut view) = context.views.remove(observer) {
+                                let prev = context.current;
+                                context.current = *observer;
+                                let prev_count = context.count;
+                                context.count = 0;
+                                view.body(&mut context);
+                                context.current = prev;
+                                context.count = prev_count;
+                                context.views.insert(*observer, view);
+                            }
+                        }
+
                     }
 
-                    for observer in observers.iter() {
-                        if let Some(mut view) = context.views.remove(observer) {
-                            let prev = context.current;
-                            context.current = *observer;
-                            let prev_count = context.count;
-                            context.count = 0;
-                            view.body(&mut context);
-                            context.current = prev;
-                            context.count = prev_count;
-                            context.views.insert(*observer, view);
-                        }
-                    }
+                    context.needs_update = true;
 
                     // Not ideal
                     let tree = context.tree.clone();

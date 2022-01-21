@@ -16,6 +16,8 @@ pub trait Model: 'static + Sized {
                 .insert(cx.current, ModelDataStore { data: data_list, lenses: HashMap::default() })
                 .expect("Failed to add data");
         }
+
+        cx.needs_update = true;
     }
 
     #[allow(unused_variables)]

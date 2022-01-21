@@ -279,11 +279,14 @@ where
             //on_submit: None,
         }
         .build2(cx, move |cx| {
-            TextboxData { editing: false, selection: Selection::caret(0) }.build(cx);
+            if cx.data::<TextboxData>().is_none() {
+                TextboxData { editing: false, selection: Selection::caret(0) }.build(cx);
+            }
 
             Binding::new(cx, lens.clone(), |cx, text| {
                 let text_string = text.get(cx).as_str().to_owned();
                 cx.current.set_text(cx, &text_string);
+                println!("New text: {}", text_string);
 
                 Binding::new(cx, TextboxData::root, move |cx, text_data| {
                     let editing = text_data.get(cx).editing;
