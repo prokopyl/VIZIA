@@ -1,6 +1,6 @@
 use glutin::{
     event::{ElementState, VirtualKeyCode},
-    event_loop::{ControlFlow, EventLoop, EventLoopProxy},
+    event_loop::{ControlFlow, EventLoop, EventLoopProxy}, dpi::{LogicalSize, LogicalPosition},
 };
 
 use vizia_core::*;
@@ -155,18 +155,22 @@ impl Application {
         window.canvas.set_size(size.width as u32, size.height as u32, dpi_factor as f32);
         window.canvas.clear_rect(0, 0, size.width as u32, size.height as u32, clear_color.into());
 
+        context.style.dpi_factor = window.handle.window().scale_factor();
+
         context.views.insert(Entity::root(), Box::new(window));
 
-        context.cache.set_width(Entity::root(), self.window_description.inner_size.width as f32);
-        context.cache.set_height(Entity::root(), self.window_description.inner_size.height as f32);
+        let logical_size: LogicalSize<f32> = size.to_logical(dpi_factor);
+
+        context.cache.set_width(Entity::root(), logical_size.width);
+        context.cache.set_height(Entity::root(), logical_size.height);
 
         context
             .style
             .width
-            .insert(Entity::root(), Units::Pixels(self.window_description.inner_size.width as f32));
+            .insert(Entity::root(), Units::Pixels(logical_size.width));
         context.style.height.insert(
             Entity::root(),
-            Units::Pixels(self.window_description.inner_size.height as f32),
+            Units::Pixels(logical_size.height),
         );
 
         context.style.pseudo_classes.insert(Entity::root(), PseudoClass::default()).unwrap();
@@ -177,6 +181,8 @@ impl Application {
         bounding_box.h = size.height as f32;
 
         context.cache.set_clip_region(Entity::root(), bounding_box);
+
+
 
         let mut event_manager = EventManager::new();
 
@@ -343,18 +349,26 @@ impl Application {
                     if let Some(mut window_view) = context.views.remove(&Entity::root()) {
                         if let Some(window) = window_view.downcast_mut::<Window>() {
 
-                            let window_width = context.cache.get_width(Entity::root());
-                            let window_height = context.cache.get_height(Entity::root());
+                            //let window_width = context.cache.get_width(Entity::root());
+                            //let window_height = context.cache.get_height(Entity::root());
 
-                            window.canvas.set_size(window_width as u32, window_height as u32, dpi_factor as f32);
+                            let window_size = window.handle.window().inner_size();
+
+                            let dpi_factor = window.handle.window().scale_factor();
+
+                            window.canvas.reset();
+
+                            window.canvas.set_size(window_size.width as u32, window_size.height as u32, dpi_factor as f32);
                             let clear_color = context.style.background_color.get(Entity::root()).cloned().unwrap_or(Color::white());
                             window.canvas.clear_rect(
                                 0,
                                 0,
-                                window_width as u32,
-                                window_height as u32,
+                                window_size.width as u32,
+                                window_size.height as u32,
                                 clear_color.into(),
                             );
+
+                            window.canvas.scale(context.style.dpi_factor as f32, context.style.dpi_factor as f32);
 
                             // Sort the tree by z order
                             let mut draw_tree: Vec<Entity> = context.tree.into_iter().collect();
@@ -431,8 +445,10 @@ impl Application {
                             modifiers: _
                         } => {
 
-                            context.mouse.cursorx = position.x as f32;
-                            context.mouse.cursory = position.y as f32;
+                            let logical_position: LogicalPosition<f32> = position.to_logical(context.style.dpi_factor);
+
+                            context.mouse.cursorx = logical_position.x as f32;
+                            context.mouse.cursory = logical_position.y as f32;
 
                             apply_hover(&mut context);
 
@@ -666,6 +682,8 @@ impl Application {
                         glutin::event::WindowEvent::Resized(size) => {
                             //println!("Resized: {:?}", size);
 
+                            let logical_size: LogicalSize<f32> = size.to_logical(context.style.dpi_factor);
+
                             if let Some(mut window_view) = context.views.remove(&Entity::root()) {
                                 if let Some(window) = window_view.downcast_mut::<Window>() {
                                     window.handle.resize(size);
@@ -677,19 +695,19 @@ impl Application {
                             context
                                 .style
                                 .width
-                                .insert(Entity::root(), Units::Pixels(size.width as f32));
+                                .insert(Entity::root(), Units::Pixels(logical_size.width));
 
                             context
                                 .style
                                 .height
-                                .insert(Entity::root(), Units::Pixels(size.height as f32));
+                                .insert(Entity::root(), Units::Pixels(logical_size.height));
 
                             context
                                 .cache
-                                .set_width(Entity::root(), size.width as f32);
+                                .set_width(Entity::root(), logical_size.width);
                             context
                                 .cache
-                                .set_height(Entity::root(), size.height as f32);
+                                .set_height(Entity::root(), logical_size.height);
 
                             let mut bounding_box = BoundingBox::default();
                             bounding_box.w = size.width as f32;

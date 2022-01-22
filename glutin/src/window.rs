@@ -27,7 +27,7 @@ impl Window {
 
         window_builder = window_builder
             .with_title(&window_description.title)
-            .with_inner_size(PhysicalSize::new(
+            .with_inner_size(LogicalSize::new(
                 window_description.inner_size.width,
                 window_description.inner_size.height,
             ))
