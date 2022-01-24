@@ -2,6 +2,17 @@ use vizia::*;
 
 const STYLE: &str = r#"
 
+    hstack {
+        width: 100px;
+        height: 100px;
+        border-color: black;
+        border-width: 1px;
+    }
+
+    hstack:over {
+        color: red;
+        font-size: 50;
+    }
 "#;
 
 #[derive(Default, Lens)]
@@ -34,7 +45,6 @@ fn main() {
         HStack::new(cx, |cx| {
             Label::new(cx, "\u{e88a}");
         })
-        .font_size(50.0)
         .font("material");
     })
     .run();

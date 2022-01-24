@@ -287,7 +287,7 @@ impl Application {
 
                     apply_styles(&mut context, &tree);
 
-                    apply_shared_inheritance(&mut context, &tree);
+                    // apply_shared_inheritance(&mut context, &tree);
 
                     apply_z_ordering(&mut context, &tree);
 

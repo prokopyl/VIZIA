@@ -463,6 +463,8 @@ pub fn apply_styles(cx: &mut Context, tree: &Tree) {
         //     continue;
         // }
 
+        let parent = entity.parent(&cx.tree).unwrap();
+
         let mut should_relayout = false;
         let mut should_redraw = false;
 
@@ -629,12 +631,12 @@ pub fn apply_styles(cx: &mut Context, tree: &Tree) {
         }
 
         // Font
-        if cx.style.font_color.link(entity, &matched_rules) {
+        if cx.style.font_color.link_inherit(entity, parent, &matched_rules) {
             //println!("43");
             should_redraw = true;
         }
 
-        if cx.style.font_size.link(entity, &matched_rules) {
+        if cx.style.font_size.link_inherit(entity, parent, &matched_rules) {
             //println!("44");
             should_redraw = true;
         }

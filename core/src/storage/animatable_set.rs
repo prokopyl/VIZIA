@@ -21,7 +21,7 @@ impl DataIndex {
     /// Create a new data index with the first bit set to 1, indicating that
     /// the index refers to inline data.
     pub fn inline(index: usize) -> Self {
-        assert!((index as u32) < INDEX_MASK);
+        assert!((index as u32) <= INDEX_MASK);
         let value = (index as u32) | INLINE_MASK;
         Self(value)
     }
@@ -34,7 +34,7 @@ impl DataIndex {
     /// Create a new data index with the first bit set to 0, indicating that
     /// the index refers to shared data.
     pub fn shared(index: usize) -> Self {
-        assert!((index as u32) < INDEX_MASK);
+        assert!((index as u32) <= INDEX_MASK);
         Self(index as u32)
     }
 
@@ -218,36 +218,43 @@ where
         let entity_index = entity.index();
         let parent_index = parent.index();
 
+        // Does the parent exist?
         if parent_index < self.inline_data.sparse.len() {
-            let parent_sparse_index = self.inline_data.sparse[parent_index];
+            let parent_data_index = self.inline_data.sparse[parent_index].data_index;
 
-            if !parent_sparse_index.data_index.is_inline()
-                && parent_sparse_index.data_index.index() < self.shared_data.dense.len()
+            // Is the parent linked to shared data and does the data exist?
+            if !parent_data_index.is_inline()
+                //&& parent_sparse_index.data_index.index() < self.shared_data.dense.len()
             {
+                //println!("{} {} {:#034b}", entity, parent, parent_data_index.0);
+                // Allocates an index for the entity if it doesn't have one
                 if entity_index >= self.inline_data.sparse.len() {
                     self.inline_data.sparse.resize(entity_index + 1, InlineIndex::null());
                 }
 
-                let entity_sparse_index = self.inline_data.sparse[entity_index];
+                let entity_data_index = self.inline_data.sparse[entity_index].data_index;
 
-                if !entity_sparse_index.data_index.is_inline()
-                    && entity_sparse_index.data_index.index() < self.shared_data.dense.len()
-                {
-                    if entity_sparse_index.data_index.is_inherited() {
+                // 
+                if !entity_data_index.is_inline() {
+                    // Does the entity already have shared data?
+                    if entity_data_index.index() < self.shared_data.dense.len() {
+                        // Set the shared data to the parent data
+                        if entity_data_index.is_inherited() {
+                            self.inline_data.sparse[entity_index] = InlineIndex {
+                                data_index: DataIndex::shared(parent_data_index.index())
+                                    .inherited(),
+                                anim_index: std::u32::MAX,
+                            };
+                            return true;
+                        }
+                    } else {
                         self.inline_data.sparse[entity_index] = InlineIndex {
-                            data_index: DataIndex::shared(parent_sparse_index.data_index.index())
+                            data_index: DataIndex::shared(parent_data_index.index())
                                 .inherited(),
                             anim_index: std::u32::MAX,
                         };
                         return true;
                     }
-                } else {
-                    self.inline_data.sparse[entity_index] = InlineIndex {
-                        data_index: DataIndex::shared(parent_sparse_index.data_index.index())
-                            .inherited(),
-                        anim_index: std::u32::MAX,
-                    };
-                    return true;
                 }
             }
         }
@@ -623,6 +630,108 @@ where
                 }
             }
         }
+
+        false
+    }
+
+
+    pub fn link_inherit(&mut self, entity: Entity, parent: Entity, rules: &[Rule]) -> bool {
+        let entity_index = entity.index();
+
+        // Check if the entity already has some data
+        if entity_index < self.inline_data.sparse.len() {
+            let data_index = self.inline_data.sparse[entity_index].data_index;
+            // If the data is inline then skip linking as inline data overrides shared data
+            if data_index.is_inline() && !data_index.is_inherited() {
+                return false;
+            }
+        }
+
+        // Loop through matched rules and link to the first valid rule
+        for rule in rules.iter() {
+            if let Some(shared_data_index) = self.shared_data.dense_idx(*rule) {
+                // If the entity doesn't have any previous shared data then create space for it
+                if entity_index >= self.inline_data.sparse.len() {
+                    self.inline_data.sparse.resize(entity_index + 1, InlineIndex::null());
+                }
+
+                // Get the animation state index of any animations (transitions) defined for the rule
+                let rule_animation = shared_data_index.animation;
+
+                //if let Some(transition_state) = self.animations.get_mut(rule_animation) {
+                let entity_anim_index = self.inline_data.sparse[entity_index].anim_index as usize;
+                if entity_anim_index < self.active_animations.len() {
+                    let current_anim_state = &mut self.active_animations[entity_anim_index];
+                    let rule_data_index = shared_data_index.data_index as usize;
+                    if rule_data_index == current_anim_state.from_rule {
+                        current_anim_state.from_rule = current_anim_state.to_rule;
+                        current_anim_state.to_rule = rule_data_index;
+                        *current_anim_state.keyframes.first_mut().unwrap() = (
+                            0.0,
+                            self.shared_data.dense[current_anim_state.from_rule].value.clone(),
+                        );
+                        *current_anim_state.keyframes.last_mut().unwrap() =
+                            (1.0, self.shared_data.dense[current_anim_state.to_rule].value.clone());
+                        current_anim_state.delay = current_anim_state.t - 1.0;
+                        current_anim_state.start_time = std::time::Instant::now();
+                    }
+                } else {
+                    if rule_animation.index() < self.animations.dense.len() {
+                        let transition_state =
+                            &mut self.animations.dense[rule_animation.index()].value;
+                        // Safe to unwrap because already checked that the rule exists
+                        let end = self.shared_data.get(*rule).unwrap();
+                        //println!("End: {:?}", end);
+
+                        let entity_data_index = self.inline_data.sparse[entity_index].data_index;
+
+                        if !entity_data_index.is_inline()
+                            && entity_data_index.index() < self.shared_data.dense.len()
+                        {
+                            let start_data =
+                                self.shared_data.dense[entity_data_index.index()].value.clone();
+                            *transition_state.keyframes.first_mut().unwrap() = (0.0, start_data);
+                        } else {
+                            *transition_state.keyframes.first_mut().unwrap() = (0.0, end.clone());
+                        }
+
+                        *transition_state.keyframes.last_mut().unwrap() = (1.0, end.clone());
+                        transition_state.from_rule =
+                            self.inline_data.sparse[entity_index].data_index.index();
+                        transition_state.to_rule = shared_data_index.index();
+
+                        self.play_animation(entity, rule_animation);
+                    }
+                }
+                //}
+
+                let data_index = self.inline_data.sparse[entity_index].data_index;
+                // Already linked
+                if !data_index.is_inline() && data_index.index() == shared_data_index.index() {
+                    return false;
+                }
+
+                self.inline_data.sparse[entity_index].data_index =
+                    DataIndex::shared(shared_data_index.index());
+
+                return true;
+            }
+        }
+        
+        // No matching rules
+        if !self.inherit_shared(entity, parent) {
+            if entity_index < self.inline_data.sparse.len() {
+                // No parent data so set the index to null
+                let data_index = self.inline_data.sparse[entity_index].data_index;
+                if !data_index.is_inline() && !data_index.is_inherited() {
+                    if self.inline_data.sparse[entity_index].data_index != DataIndex::null() {
+                        self.inline_data.sparse[entity_index].data_index = DataIndex::null();
+                        return true;
+                    }
+                }  
+            }              
+        }
+     
 
         false
     }
