@@ -9,7 +9,7 @@ use crate::{
 
 macro_rules! set_style {
     ($name:ident, $t:ty) => {
-        pub fn $name(self, value: impl Res<$t>) -> Self {
+        pub fn $name(self, value: impl Res<'a, $t> + 'a) -> Self {
             self.cx.style.$name.insert(self.entity, value.get(self.cx).clone().into());
 
             // TODO - Split this out
@@ -24,7 +24,7 @@ macro_rules! set_style {
 pub struct Handle<'a, T> {
     pub entity: Entity,
     pub p: PhantomData<T>,
-    pub cx: &'a mut Context,
+    pub cx: &'a mut Context<'a>,
 }
 
 impl<'a, T> Handle<'a, T> {
@@ -58,7 +58,7 @@ impl<'a, T> Handle<'a, T> {
         self
     }
 
-    pub fn checked(self, state: impl Res<bool>) -> Self {
+    pub fn checked(self, state: impl Res<'a, bool> + 'a) -> Self {
         let state = state.get(self.cx).clone();
         if let Some(pseudo_classes) = self.cx.style.pseudo_classes.get_mut(self.entity) {
             pseudo_classes.set(PseudoClass::CHECKED, state);
@@ -104,7 +104,7 @@ impl<'a, T> Handle<'a, T> {
         self
     }
 
-    pub fn display<U: Clone + Into<Display>>(self, value: impl Res<U>) -> Self {
+    pub fn display<U: 'a + Clone + Into<Display>>(self, value: impl Res<'a,U> + 'a) -> Self {
         self.cx.style.display.insert(self.entity, value.get(self.cx).clone().into());
 
         self.cx.style.needs_relayout = true;
@@ -113,7 +113,7 @@ impl<'a, T> Handle<'a, T> {
         self
     }
 
-    pub fn visibility<U: Clone + Into<Visibility>>(self, value: impl Res<U>) -> Self {
+    pub fn visibility<U: 'a + Clone + Into<Visibility>>(self, value: impl Res<'a,U> + 'a) -> Self {
         self.cx.style.visibility.insert(self.entity, value.get(self.cx).clone().into());
 
         self.cx.style.needs_redraw = true;

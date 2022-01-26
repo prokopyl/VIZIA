@@ -1,6 +1,8 @@
 use std::any::TypeId;
 use std::collections::HashSet;
+use std::marker::{PhantomPinned, PhantomData};
 
+use better_any::{TidExt, TidAble, Tid, typeid_of};
 use morphorm::{LayoutType, PositionType};
 
 use crate::{
@@ -9,30 +11,32 @@ use crate::{
 
 use crate::{Data, Lens, Model};
 
-pub struct Binding<L>
+#[derive(Tid)]
+pub struct Binding<'a,L>
 where
-    L: Lens,
+    L: Lens<'a>,
 {
     lens: L,
     parent: Entity,
     count: usize,
     builder: Option<Box<dyn Fn(&mut Context, Field<L>)>>,
+    p: PhantomData<&'a ()>,
 }
 
-impl<L> Binding<L>
+impl<'a,L> Binding<'a,L>
 where
-    L: 'static + Lens,
-    <L as Lens>::Source: 'static,
-    <L as Lens>::Target: Data,
+    L: Lens<'a>,
+    L::Source: TidAble<'a>,
+    L::Target: Data,
 {
-    pub fn new<F>(cx: &mut Context, lens: L, builder: F)
+    pub fn new<F>(cx: &'a mut Context<'a>, lens: L, builder: F)
     where
-        F: 'static + Fn(&mut Context, Field<L>),
-        <L as Lens>::Source: Model,
+        F: Fn(&mut Context, Field<L>),
+        L::Source: Model,
     {
         let parent = cx.current;
 
-        let binding = Self { lens, parent, count: cx.count + 1, builder: Some(Box::new(builder)) };
+        let binding = Self { lens, parent, count: cx.count + 1, builder: Some(Box::new(builder)), p: PhantomData::default() };
 
         let id = if let Some(id) = cx.tree.get_child(cx.current, cx.count) {
             id
@@ -48,7 +52,7 @@ where
 
         for entity in id.parent_iter(&cx.tree) {
             if let Some(model_data_store) = cx.data.get_mut(entity) {
-                if let Some(model_data) = model_data_store.data.get(&TypeId::of::<L::Source>()) {
+                if let Some(model_data) = model_data_store.data.get(&typeid_of::<L::Source>()) {
                     if let Some(lens_wrap) = model_data_store.lenses.get_mut(&TypeId::of::<L>()) {
                         let observers = lens_wrap.observers();
 
@@ -65,7 +69,7 @@ where
 
                         model_data_store.lenses.insert(
                             TypeId::of::<L>(),
-                            Box::new(StateStore { entity: id, lens, old: old.clone(), observers }),
+                            Box::new(StateStore { entity: id, lens, old: old.clone(), observers, p: PhantomData::default() }),
                         );
                     }
 
@@ -92,14 +96,14 @@ where
     }
 }
 
-impl<L: 'static + Lens> View for Binding<L> {
-    fn body<'a>(&mut self, cx: &'a mut Context) {
+impl<'a, L: Lens<'a>> View for Binding<'a, L> {
+    fn body(&mut self, cx: &mut Context) {
         if let Some(builder) = self.builder.take() {
             //let prev = cx.current;
             //let count = cx.count;
             cx.current = self.parent;
             cx.count = self.count;
-            (builder)(cx, Field { lens: self.lens.clone() });
+            (builder)(cx, Field { lens: self.lens.clone(), p: PhantomData::default()});
             //cx.current = prev;
             //cx.count = count;
             self.builder = Some(builder);
@@ -108,15 +112,16 @@ impl<L: 'static + Lens> View for Binding<L> {
 }
 
 #[derive(Clone, Copy)]
-pub struct Field<L> {
+pub struct Field<'a, L> {
     lens: L,
+    p: PhantomData<&'a ()>,
 }
 
-impl<L: Lens> Field<L>
-where
-    <L as Lens>::Source: 'static,
+impl<'a, L: Lens<'a>> Field<'a, L> 
+where 
+    L::Source: TidAble<'a>,
 {
-    pub fn get<'a>(&self, cx: &'a Context) -> &'a L::Target {
+    pub fn get(&self, cx: &'a Context<'a>) -> &'a L::Target {
         self.lens.view(cx.data().expect(&format!(
             "Failed to get {:?} for entity: {:?}. Is the data in the tree?",
             self.lens, cx.current
@@ -126,16 +131,16 @@ where
 
 macro_rules! impl_res_simple {
     ($t:ty) => {
-        impl Res<$t> for $t {
-            fn get<'a>(&'a self, _: &'a Context) -> &'a $t {
+        impl<'a> Res<'a, $t> for $t {
+            fn get(&'a self, _: &'a Context) -> &'a $t {
                 self
             }
         }
     };
 }
 
-pub trait Res<T> {
-    fn get<'a>(&'a self, cx: &'a Context) -> &'a T;
+pub trait Res<'a,T> {
+    fn get(&'a self, cx: &'a Context<'a>) -> &'a T;
 }
 
 impl_res_simple!(i8);
@@ -155,53 +160,53 @@ impl_res_simple!(bool);
 impl_res_simple!(f32);
 impl_res_simple!(f64);
 
-impl<T, L> Res<T> for Field<L>
+impl<'a, T, L> Res<'a, T> for Field<'a, L>
 where
-    L: Lens<Target = T>,
+    L: Lens<'a, Target = T>,
 {
-    fn get<'a>(&'a self, cx: &'a Context) -> &'a T {
+    fn get(&'a self, cx: &'a Context<'a>) -> &'a T {
         self.get(cx)
     }
 }
 
-impl Res<Color> for Color {
-    fn get<'a>(&'a self, _: &'a Context) -> &'a Color {
+impl<'a> Res<'a, Color> for Color {
+    fn get(&'a self, _: &'a Context) -> &'a Color {
         self
     }
 }
 
-impl Res<Units> for Units {
-    fn get<'a>(&'a self, _: &'a Context) -> &'a Units {
+impl<'a> Res<'a, Units> for Units {
+    fn get(&'a self, _: &'a Context) -> &'a Units {
         self
     }
 }
 
-impl Res<Visibility> for Visibility {
-    fn get<'a>(&'a self, _: &'a Context) -> &'a Visibility {
+impl<'a> Res<'a, Visibility> for Visibility {
+    fn get(&'a self, _: &'a Context) -> &'a Visibility {
         self
     }
 }
 
-impl Res<Display> for Display {
-    fn get<'a>(&'a self, _: &'a Context) -> &'a Display {
+impl<'a> Res<'a, Display> for Display {
+    fn get(&'a self, _: &'a Context) -> &'a Display {
         self
     }
 }
 
-impl Res<LayoutType> for LayoutType {
-    fn get<'a>(&'a self, _: &'a Context) -> &'a LayoutType {
+impl<'a> Res<'a, LayoutType> for LayoutType {
+    fn get(&'a self, _: &'a Context) -> &'a LayoutType {
         self
     }
 }
 
-impl Res<PositionType> for PositionType {
-    fn get<'a>(&'a self, _: &'a Context) -> &'a PositionType {
+impl<'a> Res<'a, PositionType> for PositionType {
+    fn get(&'a self, _: &'a Context) -> &'a PositionType {
         self
     }
 }
 
-impl<T> Res<(T, T)> for (T, T) {
-    fn get<'a>(&'a self, _: &'a Context) -> &'a (T, T) {
+impl<'a, T> Res<'a, (T, T)> for (T, T) {
+    fn get(&'a self, _: &'a Context) -> &'a (T, T) {
         self
     }
 }

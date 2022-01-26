@@ -1,9 +1,12 @@
+use better_any::{Tid, TidAble};
+
 use crate::{Context, Handle, LocalizedStringKey, View};
 
+#[derive(Tid)]
 pub struct Label;
 
 impl Label {
-    pub fn new<'a>(cx: &mut Context, text: impl LocalizedStringKey<'a>) -> Handle<Self> {
+    pub fn new<'a>(cx: &'a mut Context<'a>, text: impl LocalizedStringKey<'a>) -> Handle<'a, Self> {
         Self {}.build2(cx, |_| {}).text(text.key())
     }
 }

@@ -1,32 +1,36 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, marker::PhantomData};
+
+use better_any::{TidExt, TidAble, Tid};
 
 use crate::{Data, Entity, Lens, ModelData};
 
-pub trait LensWrap {
-    fn update(&mut self, model: &Box<dyn ModelData>) -> bool;
+pub trait LensWrap<'a> {
+    fn update(&'a mut self, model: &'a dyn ModelData<'a>) -> bool;
     fn observers(&self) -> &HashSet<Entity>;
     fn add_observer(&mut self, observer: Entity);
     fn entity(&self) -> Entity;
 }
 
-pub struct StateStore<L: Lens, T> {
+pub struct StateStore<'a, L: Lens<'a>, T> {
     // The entity which declared the binding
     pub entity: Entity,
     pub lens: L,
     pub old: T,
     pub observers: HashSet<Entity>,
+    p: PhantomData<&'a ()>,
 }
 
-impl<L: Lens, T> LensWrap for StateStore<L, T>
+impl<'a, L: Lens<'a>, T> LensWrap<'a> for StateStore<'a, L, T>
 where
-    L: Lens<Target = T>,
-    <L as Lens>::Target: Data,
+    L: Lens<'a, Target = T>,
+    L::Source: Tid<'a>,
+    L::Target: Data,
 {
     fn entity(&self) -> Entity {
         self.entity
     }
 
-    fn update(&mut self, model: &Box<dyn ModelData>) -> bool {
+    fn update(&'a mut self, model: &'a dyn ModelData<'a>) -> bool {
         if let Some(data) = model.downcast_ref::<L::Source>() {
             let state = self.lens.view(data);
             if !state.same(&self.old) {

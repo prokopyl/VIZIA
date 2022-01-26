@@ -2,7 +2,7 @@ use std::{ptr, rc::Rc, sync::Arc};
 
 use crate::Color;
 
-pub trait Data: 'static + Clone {
+pub trait Data: Clone {
     fn same(&self, other: &Self) -> bool;
 }
 
@@ -74,25 +74,25 @@ impl Data for f64 {
     }
 }
 
-impl<T: ?Sized + 'static> Data for Arc<T> {
+impl<T: ?Sized> Data for Arc<T> {
     fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(self, other)
     }
 }
 
-impl<T: ?Sized + 'static> Data for std::sync::Weak<T> {
+impl<T: ?Sized> Data for std::sync::Weak<T> {
     fn same(&self, other: &Self) -> bool {
         std::sync::Weak::ptr_eq(self, other)
     }
 }
 
-impl<T: ?Sized + 'static> Data for Rc<T> {
+impl<T: ?Sized> Data for Rc<T> {
     fn same(&self, other: &Self) -> bool {
         Rc::ptr_eq(self, other)
     }
 }
 
-impl<T: ?Sized + 'static> Data for std::rc::Weak<T> {
+impl<T: ?Sized> Data for std::rc::Weak<T> {
     fn same(&self, other: &Self) -> bool {
         std::rc::Weak::ptr_eq(self, other)
     }
@@ -172,20 +172,20 @@ impl<T0: Data, T1: Data, T2: Data, T3: Data, T4: Data, T5: Data> Data for (T0, T
     }
 }
 
-impl<T: 'static + ?Sized> Data for std::marker::PhantomData<T> {
+impl<T: ?Sized> Data for std::marker::PhantomData<T> {
     fn same(&self, _other: &Self) -> bool {
         // zero-sized types
         true
     }
 }
 
-impl<T: 'static> Data for std::mem::Discriminant<T> {
+impl<T> Data for std::mem::Discriminant<T> {
     fn same(&self, other: &Self) -> bool {
         *self == *other
     }
 }
 
-impl<T: 'static + ?Sized + Data> Data for std::mem::ManuallyDrop<T> {
+impl<T: ?Sized + Data> Data for std::mem::ManuallyDrop<T> {
     fn same(&self, other: &Self) -> bool {
         (&**self).same(&**other)
     }

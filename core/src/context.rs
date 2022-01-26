@@ -1,5 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 
+use better_any::{TidExt, TidAble};
 #[cfg(feature = "clipboard")]
 use copypasta::ClipboardContext;
 use femtovg::TextContext;
@@ -14,13 +15,13 @@ use crate::{
 
 static DEFAULT_THEME: &str = include_str!("default_theme.css");
 
-pub struct Context {
+pub struct Context<'a> {
     pub entity_manager: IdManager<Entity>,
     pub tree: Tree,
     pub current: Entity,
     pub count: usize,
-    pub views: HashMap<Entity, Box<dyn ViewHandler>>,
-    pub data: SparseSet<ModelDataStore>,
+    pub views: HashMap<Entity, Box<dyn ViewHandler<'a>>>,
+    pub data: SparseSet<ModelDataStore<'a>>,
     pub event_queue: VecDeque<Event>,
     pub listeners: HashMap<Entity, Box<dyn Fn(&mut dyn ViewHandler, &mut Context, &mut Event)>>,
     pub style: Style,
@@ -43,7 +44,7 @@ pub struct Context {
     pub clipboard: ClipboardContext,
 }
 
-impl Context {
+impl<'a> Context<'a> {
     pub fn new() -> Self {
         let mut cache = CachedData::default();
         cache.add(Entity::root()).expect("Failed to add entity to cache");
@@ -109,7 +110,7 @@ impl Context {
     }
 
     /// Get stored data from the context.
-    pub fn data<T: 'static>(&self) -> Option<&T> {
+    pub fn data<T: TidAble<'a>>(&'a self) -> Option<&'a T> {
         // return data for the static model
         if let Some(t) = ().as_any().downcast_ref::<T>() {
             return Some(t);
@@ -144,20 +145,20 @@ impl Context {
         );
     }
 
-    pub fn add_listener<F, W>(&mut self, listener: F)
-    where
-        W: View,
-        F: 'static + Fn(&mut W, &mut Context, &mut Event),
-    {
-        self.listeners.insert(
-            self.current,
-            Box::new(move |event_handler, context, event| {
-                if let Some(widget) = event_handler.downcast_mut::<W>() {
-                    (listener)(widget, context, event);
-                }
-            }),
-        );
-    }
+    // pub fn add_listener<F, W>(&mut self, listener: F)
+    // where
+    //     W: View,
+    //     F: 'static + Fn(&mut W, &mut Context, &mut Event),
+    // {
+    //     self.listeners.insert(
+    //         self.current,
+    //         Box::new(move |event_handler, context, event| {
+    //             if let Some(widget) = event_handler.downcast_mut::<W>() {
+    //                 (listener)(widget, context, event);
+    //             }
+    //         }),
+    //     );
+    // }
 
     pub fn emit_trace<M: Message>(&mut self, message: M) {
         self.event_queue.push_back(

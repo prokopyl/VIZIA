@@ -3,6 +3,7 @@ use crate::{
     Context, Event, FontOrId, Handle, ViewHandler,
 };
 
+use better_any::TidAble;
 use femtovg::{
     renderer::OpenGl, Align, Baseline, ImageFlags, Paint, Path, PixelFormat, RenderTarget,
 };
@@ -13,12 +14,13 @@ pub type Canvas = femtovg::Canvas<OpenGl>;
 // Length proportional to radius of a cubic bezier handle for 90deg arcs.
 const KAPPA90: f32 = 0.5522847493;
 
-pub trait View: 'static + Sized {
+pub trait View: Sized {
     #[allow(unused_variables)]
     fn body(&mut self, cx: &mut Context) {}
-    fn build2<F>(self, cx: &mut Context, builder: F) -> Handle<Self>
+    fn build2<'a, F>(self, cx: &'a mut Context<'a>, builder: F) -> Handle<'a, Self>
     where
-        F: 'static + FnOnce(&mut Context),
+        F: FnOnce(&mut Context),
+        Self: TidAble<'a>,
     {
         // Add the instance to context unless it already exists
         let id = if let Some(id) = cx.tree.get_child(cx.current, cx.count) {
@@ -51,75 +53,75 @@ pub trait View: 'static + Sized {
         handle
     }
 
-    fn update<F>(self, cx: &mut Context, builder: F) -> Handle<Self>
-    where
-        F: 'static + FnOnce(&mut Context),
-    {
-        // Add the instance to context unless it already exists
-        let id = if let Some(id) = cx.tree.get_child(cx.current, cx.count) {
-            cx.views.insert(id, Box::new(self));
-            id
-        } else {
-            let id = cx.entity_manager.create();
-            cx.tree.add(id, cx.current).expect("Failed to add to tree");
-            cx.cache.add(id).expect("Failed to add to cache");
-            cx.style.add(id);
-            cx.views.insert(id, Box::new(self));
-            id
-        };
+    // fn update<F>(self, cx: &mut Context, builder: F) -> Handle<Self>
+    // where
+    //     F: 'static + FnOnce(&mut Context),
+    // {
+    //     // Add the instance to context unless it already exists
+    //     let id = if let Some(id) = cx.tree.get_child(cx.current, cx.count) {
+    //         cx.views.insert(id, Box::new(self));
+    //         id
+    //     } else {
+    //         let id = cx.entity_manager.create();
+    //         cx.tree.add(id, cx.current).expect("Failed to add to tree");
+    //         cx.cache.add(id).expect("Failed to add to cache");
+    //         cx.style.add(id);
+    //         cx.views.insert(id, Box::new(self));
+    //         id
+    //     };
 
-        cx.count += 1;
+    //     cx.count += 1;
 
-        // ...and this part
-        let prev = cx.current;
-        let prev_count = cx.count;
-        cx.current = id;
-        cx.count = 0;
+    //     // ...and this part
+    //     let prev = cx.current;
+    //     let prev_count = cx.count;
+    //     cx.current = id;
+    //     cx.count = 0;
 
-        let handle = Handle { entity: id, p: Default::default(), cx };
+    //     let handle = Handle { entity: id, p: Default::default(), cx };
 
-        (builder)(handle.cx);
+    //     (builder)(handle.cx);
 
-        // This part will also be moved somewhere else
-        handle.cx.current = prev;
-        handle.cx.count = prev_count;
+    //     // This part will also be moved somewhere else
+    //     handle.cx.current = prev;
+    //     handle.cx.count = prev_count;
 
-        handle
-    }
+    //     handle
+    // }
 
-    fn build(mut self, cx: &mut Context) -> Handle<Self> {
-        let id = if let Some(id) = cx.tree.get_child(cx.current, cx.count) {
-            let prev = cx.current;
-            cx.current = id;
-            let prev_count = cx.count;
-            cx.count = 0;
-            self.body(cx);
-            cx.current = prev;
-            cx.count = prev_count;
+    // fn build(mut self, cx: &mut Context) -> Handle<Self> {
+    //     let id = if let Some(id) = cx.tree.get_child(cx.current, cx.count) {
+    //         let prev = cx.current;
+    //         cx.current = id;
+    //         let prev_count = cx.count;
+    //         cx.count = 0;
+    //         self.body(cx);
+    //         cx.current = prev;
+    //         cx.count = prev_count;
 
-            cx.views.insert(id, Box::new(self));
+    //         cx.views.insert(id, Box::new(self));
 
-            id
-        } else {
-            let id = cx.entity_manager.create();
-            cx.tree.add(id, cx.current).expect("Failed to add to tree");
-            cx.cache.add(id).expect("Failed to add to cache");
-            cx.style.add(id);
-            let prev = cx.current;
-            cx.current = id;
-            let prev_count = cx.count;
-            cx.count = 0;
-            self.body(cx);
-            cx.current = prev;
-            cx.count = prev_count;
-            cx.views.insert(id, Box::new(self));
-            id
-        };
+    //         id
+    //     } else {
+    //         let id = cx.entity_manager.create();
+    //         cx.tree.add(id, cx.current).expect("Failed to add to tree");
+    //         cx.cache.add(id).expect("Failed to add to cache");
+    //         cx.style.add(id);
+    //         let prev = cx.current;
+    //         cx.current = id;
+    //         let prev_count = cx.count;
+    //         cx.count = 0;
+    //         self.body(cx);
+    //         cx.current = prev;
+    //         cx.count = prev_count;
+    //         cx.views.insert(id, Box::new(self));
+    //         id
+    //     };
 
-        cx.count += 1;
+    //     cx.count += 1;
 
-        Handle { entity: id, p: Default::default(), cx }
-    }
+    //     Handle { entity: id, p: Default::default(), cx }
+    // }
 
     fn element(&self) -> Option<String> {
         None
@@ -730,9 +732,11 @@ pub trait View: 'static + Sized {
     }
 }
 
-impl<T: View> ViewHandler for T
+
+
+impl<'a, T: View> ViewHandler<'a> for T
 where
-    T: std::marker::Sized + View + 'static,
+    T: std::marker::Sized + View + TidAble<'a>,
 {
     fn element(&self) -> Option<String> {
         <T as View>::element(&self)

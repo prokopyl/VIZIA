@@ -27,6 +27,7 @@ unicode-segmentation = "1.8.0"
 copypasta = {version = "0.7.1", optional = true}
 
 rusty-daw-core = {version = "0.7.4", optional = true}
+better_any = "*"
 
 # Required so that doc tests will compile
 [dev-dependencies]
