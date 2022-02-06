@@ -26,9 +26,9 @@ impl ViziaWindow {
     ) -> ViziaWindow {
         let (renderer, context) = load_renderer(window);
 
-        context.make_current();
+        unsafe { context.make_current(); }
         let application = ApplicationRunner::new(cx, win_desc, renderer);
-        context.make_not_current();
+        unsafe { context.make_not_current(); }
 
         ViziaWindow { application, context, builder, on_idle }
     }
@@ -151,12 +151,12 @@ impl WindowHandler for ViziaWindow {
 
         self.application.on_frame_update();
 
-        self.context.make_current();
+        unsafe { self.context.make_current(); }
 
         self.application.render();
         self.context.swap_buffers();
 
-        self.context.make_not_current();
+        unsafe { self.context.make_not_current(); }
     }
 
     fn on_event(&mut self, _window: &mut Window<'_>, event: Event) -> EventStatus {
@@ -179,16 +179,16 @@ fn load_renderer(window: &Window) -> (Renderer, raw_gl_context::GlContext) {
     let mut config = raw_gl_context::GlConfig::default();
     config.vsync = false;
 
-    let context = raw_gl_context::GlContext::create(window, config).unwrap();
+    let context = unsafe { raw_gl_context::GlContext::create(window, config) }.unwrap();
 
-    context.make_current();
+    unsafe { context.make_current(); }
 
     let renderer = unsafe {
         femtovg::renderer::OpenGl::new_from_function(|s| context.get_proc_address(s) as *const _)
             .expect("Cannot create renderer")
     };
 
-    context.make_not_current();
+    unsafe { context.make_not_current(); }
 
     (renderer, context)
 }
